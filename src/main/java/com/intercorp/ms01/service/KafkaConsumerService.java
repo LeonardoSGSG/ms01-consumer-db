@@ -1,8 +1,10 @@
 package com.intercorp.ms01.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.intercorp.ms01.model.KafkaMessageWrapper;
 import com.intercorp.ms01.model.Person;
 import com.intercorp.ms01.repository.PersonRepository;
+
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 
@@ -10,20 +12,36 @@ import org.springframework.stereotype.Service;
 public class KafkaConsumerService {
 
     private final PersonRepository repository;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
 
-    public KafkaConsumerService(PersonRepository repository) {
+    public KafkaConsumerService(PersonRepository repository, ObjectMapper objectMapper) {
         this.repository = repository;
+        this.objectMapper = objectMapper;
     }
 
-    @KafkaListener(topics = "kafka-topic-01", groupId = "ms01-consumer-group")
+    @KafkaListener(topics = "kafka-topic-01", groupId = "group-consumer-db")
     public void consume(String message) {
         try {
-            Person person = objectMapper.readValue(message, Person.class);
-            repository.save(person);
-            System.out.println("Guardado en DB: " + person);
+          System.out.println("Mensaje recibido: " + message);
+
+            KafkaMessageWrapper wrapper = objectMapper.readValue(message, KafkaMessageWrapper.class);
+            Person person = wrapper.getPerson();
+            person.setRandom(wrapper.getRandom());
+            person.setRandomFloat(wrapper.getRandomFloat());
+            person.setBool(wrapper.isBool());
+            person.setDate(wrapper.getDate());
+            person.setRegex(wrapper.getRegex());
+            person.setEnumValue(wrapper.getEnumValue());
+            person.setElements(wrapper.getElements());
+            person.setAge(wrapper.getAge());
+
+            if (!repository.existsByEmail(person.getEmail())) {
+              repository.save(person);
+          }
+                      System.out.println("Guardado en DB: " + person);
         } catch (Exception e) {
-            System.err.println("Error al procesar mensaje: " + e.getMessage());
-        }
+          e.printStackTrace();
+      }
+      
     }
 }
